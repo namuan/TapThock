@@ -19,9 +19,6 @@ struct SettingsView: View {
 
             playbackTab
                 .tabItem { Label("Playback", systemImage: "speaker.wave.2") }
-
-            testKeyboardTab
-                .tabItem { Label("Test Keyboard", systemImage: "keyboard") }
         }
         .padding(24)
     }
@@ -45,7 +42,7 @@ struct SettingsView: View {
     }
 
     private var playbackTab: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        HStack(alignment: .top, spacing: 20) {
             GroupBox {
                 VStack(alignment: .leading, spacing: 16) {
                     slider(title: "Master Volume", value: $appModel.masterVolume)
@@ -61,19 +58,22 @@ struct SettingsView: View {
                 }
                 .padding(8)
             }
-            Spacer()
-        }
-    }
+            .frame(maxWidth: .infinity)
 
-    private var testKeyboardTab: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Type in the field below to hear the currently selected pack without leaving settings.")
-                .foregroundStyle(.secondary)
-
-            TypingPreviewField(text: $previewText) { event in
-                appModel.preview(event: event)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Test Keyboard")
+                    .font(.headline)
+                Text("Type here to preview the current pack.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                TypingPreviewField(text: $previewText) { event in
+                    appModel.preview(event: event)
+                }
+                .frame(maxHeight: .infinity)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .frame(maxHeight: .infinity)
     }
 
     private func slider(title: String, value: Binding<Double>) -> some View {
