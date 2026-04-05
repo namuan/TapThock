@@ -6,7 +6,7 @@ struct TapThockApp: App {
     private let appModel = AppModel.shared
 
     var body: some Scene {
-        MenuBarExtra("TapThock", systemImage: appModel.isEnabled ? "keyboard.fill" : "keyboard") {
+        MenuBarExtra("TapThock", image: Image("AppIcon")) {
             MenuBarContentView(appModel: appModel)
         }
         .menuBarExtraStyle(.window)
