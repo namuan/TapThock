@@ -74,11 +74,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-rm -rf "$ROOT_DIR/.build" "$APP_DIR"
+rm -rf "$APP_DIR"
 mkdir -p "$DIST_DIR"
 
 create_icns_from_png
 
+xcrun swift build "${BUILD_ARGS[@]}"
 BIN_DIR="$(xcrun swift build "${BUILD_ARGS[@]}" --show-bin-path)"
 EXECUTABLE="$BIN_DIR/$APP_NAME"
 RESOURCE_BUNDLE="$(find "$BIN_DIR" -maxdepth 1 -name "${APP_NAME}_*.bundle" | head -n 1)"
@@ -93,6 +94,14 @@ fi
 
 if [[ -f "$ICON_ICNS" ]]; then
   cp "$ICON_ICNS" "$RESOURCES_DIR/AppIcon.icns"
+fi
+
+ASSETS_DIR="$ROOT_DIR/Sources/TapThock/Resources/Assets.xcassets"
+if [[ -d "$ASSETS_DIR" ]]; then
+  if [[ -d "$ICONSET_DIR" ]]; then
+    cp -r "$ICONSET_DIR/"* "$ASSETS_DIR/AppIcon.appiconset/"
+  fi
+  cp -R "$ASSETS_DIR" "$RESOURCES_DIR/"
 fi
 
 cat > "$CONTENTS_DIR/Info.plist" <<'PLIST'
