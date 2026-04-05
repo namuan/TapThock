@@ -37,6 +37,7 @@ struct SettingsView: View {
                             SoundPackCard(pack: pack, isSelected: appModel.selectedPackID == pack.id)
                         }
                         .buttonStyle(.plain)
+                    .focusEffectDisabled()
                     }
                 }
             }
