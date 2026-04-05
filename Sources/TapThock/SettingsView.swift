@@ -28,12 +28,6 @@ struct SettingsView: View {
 
     private var soundPacksTab: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Spacer()
-                Button("Preview Current Pack") {
-                    appModel.previewCurrentPack()
-                }
-            }
             ScrollView {
                 LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
                     ForEach(appModel.availablePacks) { pack in
