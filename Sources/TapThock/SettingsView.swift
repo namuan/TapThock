@@ -115,12 +115,6 @@ struct SettingsView: View {
                         }
                     }
 
-                    if !permissionChecker.isInputMonitoringReady {
-                        Button("Grant Input Monitoring Access") {
-                            permissionChecker.requestInputMonitoringAccess()
-                        }
-                    }
-
                     if let statusMessage = appModel.statusMessage {
                         Text(statusMessage)
                             .font(.footnote)

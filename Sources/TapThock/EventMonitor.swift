@@ -6,7 +6,8 @@ import Observation
 @Observable
 final class EventMonitor {
     private weak var appModel: AppModel?
-    private var monitors: [Any] = []
+    private var eventTap: CFMachPort?
+    private var runLoopSource: CFRunLoopSource?
     private var lastScrollEventAt: TimeInterval = 0
 
     var isRunning = false
@@ -18,40 +19,90 @@ final class EventMonitor {
     func start() {
         guard !isRunning else { return }
         isRunning = true
-        AppLog.info("EventMonitor", "Starting global event monitoring")
+        AppLog.info("EventMonitor", "Starting global event monitoring with CGEventTap")
 
-        let keyboardMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            AppLog.debug("EventMonitor", "Captured global key down", metadata: [
-                "characters": event.charactersIgnoringModifiers ?? "",
-                "keyCode": "\(event.keyCode)",
+        let eventMask: CGEventMask = (
+            (1 << CGEventType.keyDown.rawValue) |
+            (1 << CGEventType.leftMouseDown.rawValue) |
+            (1 << CGEventType.rightMouseDown.rawValue) |
+            (1 << CGEventType.otherMouseDown.rawValue) |
+            (1 << CGEventType.scrollWheel.rawValue)
+        )
+
+        eventTap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: eventMask,
+            callback: { (proxy, type, event, refcon) -> Unmanaged<CGEvent>? in
+                guard let refcon = refcon else { return Unmanaged.passRetained(event) }
+                let monitor = Unmanaged<EventMonitor>.fromOpaque(refcon).takeUnretainedValue()
+                return monitor.handleEvent(proxy: proxy, type: type, event: event)
+            },
+            userInfo: Unmanaged.passUnretained(self).toOpaque()
+        )
+
+        guard let eventTap = eventTap else {
+            AppLog.error("EventMonitor", "Failed to create event tap")
+            isRunning = false
+            return
+        }
+
+        runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
+        CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
+        CGEvent.tapEnable(tap: eventTap, enable: true)
+
+        AppLog.info("EventMonitor", "Event tap installed successfully")
+    }
+
+    func stop() {
+        guard isRunning else { return }
+        if let eventTap = eventTap {
+            CGEvent.tapEnable(tap: eventTap, enable: false)
+        }
+        if let runLoopSource = runLoopSource {
+            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
+        }
+        eventTap = nil
+        runLoopSource = nil
+        isRunning = false
+        AppLog.info("EventMonitor", "Stopped global event monitoring")
+    }
+
+    private func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        switch type {
+        case .keyDown:
+            let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+            let characters = event.keyboardCharacter
+            AppLog.debug("EventMonitor", "Captured key down", metadata: [
+                "characters": characters,
+                "keyCode": "\(keyCode)",
             ])
             Task { @MainActor [weak self] in
                 self?.appModel?.noteObservedGlobalKeyboardEvent()
                 self?.appModel?.playKeyboardSound(for: event)
             }
-        }
 
-        let leftMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { [weak self] _ in
+        case .leftMouseDown:
             AppLog.debug("EventMonitor", "Captured left mouse down")
             Task { @MainActor [weak self] in
                 self?.appModel?.playMouseSound(button: .left)
             }
-        }
 
-        let rightMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: .rightMouseDown) { [weak self] _ in
+        case .rightMouseDown:
             AppLog.debug("EventMonitor", "Captured right mouse down")
             Task { @MainActor [weak self] in
                 self?.appModel?.playMouseSound(button: .right)
             }
-        }
 
-        let otherMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: .otherMouseDown) { [weak self] event in
+        case .otherMouseDown:
+            let buttonNumber = event.getIntegerValueField(.mouseEventButtonNumber)
             AppLog.debug("EventMonitor", "Captured other mouse down", metadata: [
-                "buttonNumber": "\(event.buttonNumber)",
+                "buttonNumber": "\(buttonNumber)",
             ])
             Task { @MainActor [weak self] in
                 let button: MouseButton
-                switch event.buttonNumber {
+                switch buttonNumber {
                 case 2: button = .middle
                 case 3: button = .back
                 case 4: button = .forward
@@ -59,38 +110,42 @@ final class EventMonitor {
                 }
                 self?.appModel?.playMouseSound(button: button)
             }
-        }
 
-        let scrollMonitor = NSEvent.addGlobalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+        case .scrollWheel:
+            let deltaY = event.getDoubleValueField(.scrollWheelEventDeltaAxis2)
             AppLog.debug("EventMonitor", "Captured scroll wheel event", metadata: [
-                "deltaY": String(format: "%.3f", event.scrollingDeltaY),
+                "deltaY": String(format: "%.3f", deltaY),
             ])
             Task { @MainActor [weak self] in
-                self?.handleScroll(event)
+                self?.handleScroll(deltaY: deltaY)
             }
+
+        case .tapDisabledByTimeout, .tapDisabledByUserInput:
+            if let eventTap = eventTap {
+                CGEvent.tapEnable(tap: eventTap, enable: true)
+            }
+
+        default:
+            break
         }
 
-        monitors = [keyboardMonitor, leftMouseMonitor, rightMouseMonitor, otherMouseMonitor, scrollMonitor].compactMap { $0 }
-        AppLog.info("EventMonitor", "Installed event monitors", metadata: [
-            "count": "\(monitors.count)",
-        ])
+        return Unmanaged.passRetained(event)
     }
 
-    func stop() {
-        guard isRunning else { return }
-        monitors.forEach(NSEvent.removeMonitor)
-        monitors.removeAll()
-        isRunning = false
-        AppLog.info("EventMonitor", "Stopped global event monitoring")
-    }
-
-    private func handleScroll(_ event: NSEvent) {
+    private func handleScroll(deltaY: Double) {
         let now = ProcessInfo.processInfo.systemUptime
         guard now - lastScrollEventAt > 0.03 else {
             AppLog.debug("EventMonitor", "Dropped scroll event due to throttle")
             return
         }
         lastScrollEventAt = now
-        appModel?.playScrollSound(deltaY: event.scrollingDeltaY)
+        appModel?.playScrollSound(deltaY: deltaY)
+    }
+}
+
+private extension CGEvent {
+    var keyboardCharacter: String {
+        guard let nsEvent = NSEvent(cgEvent: self) else { return "" }
+        return nsEvent.charactersIgnoringModifiers ?? ""
     }
 }

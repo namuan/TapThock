@@ -150,7 +150,7 @@ final class AppModel {
             "launchAtLogin": "\(launchAtLogin)",
             "masterVolume": String(format: "%.2f", masterVolume),
             "mouseEnabled": "\(mouseEnabled)",
-            "verifiedInputMonitoringAccess": "\(permissionChecker.hasVerifiedInputMonitoringAccess)",
+            "verifiedAccessibilityAccess": "\(permissionChecker.hasVerifiedAccessibilityAccess)",
             "scrollEnabled": "\(scrollEnabled)",
             "selectedPackID": selectedPackID,
             "showDockIcon": "\(showDockIcon)",
@@ -189,8 +189,7 @@ final class AppModel {
 
         AppLog.info("AppModel", "Evaluated onboarding state", metadata: [
             "hasCompletedOnboarding": "\(hasCompletedOnboarding)",
-            "hasInputMonitoringAccess": "\(permissionChecker.hasInputMonitoringAccess)",
-            "isInputMonitoringReady": "\(permissionChecker.isInputMonitoringReady)",
+            "hasVerifiedAccessibilityAccess": "\(permissionChecker.hasVerifiedAccessibilityAccess)",
             "missingRequiredPermissions": "\(permissionChecker.isMissingRequiredPermissions)",
             "shouldShowOnboardingOnLaunch": "\(shouldShowOnboardingOnLaunch)",
             "isTrusted": "\(permissionChecker.isTrusted)",
@@ -264,6 +263,19 @@ final class AppModel {
         soundManager.playKeyboard(event: event, volume: effectiveKeyboardVolume)
     }
 
+    func playKeyboardSound(for event: CGEvent) {
+        guard isEnabled, keyboardEnabled else {
+            AppLog.debug("AppModel", "Skipped keyboard sound", metadata: [
+                "isEnabled": "\(isEnabled)",
+                "keyboardEnabled": "\(keyboardEnabled)",
+            ])
+            return
+        }
+
+        guard let nsEvent = NSEvent(cgEvent: event) else { return }
+        soundManager.playKeyboard(event: nsEvent, volume: effectiveKeyboardVolume)
+    }
+
     func playMouseSound(button: MouseButton) {
         guard isEnabled, mouseEnabled else {
             AppLog.debug("AppModel", "Skipped mouse sound", metadata: [
@@ -290,11 +302,23 @@ final class AppModel {
         soundManager.playScroll(deltaY: deltaY, volume: effectiveScrollVolume)
     }
 
+    func playScrollSound(from event: NSEvent) {
+        guard isEnabled, scrollEnabled else {
+            AppLog.debug("AppModel", "Skipped scroll sound", metadata: [
+                "deltaY": String(format: "%.3f", event.scrollingDeltaY),
+                "isEnabled": "\(isEnabled)",
+                "scrollEnabled": "\(scrollEnabled)",
+            ])
+            return
+        }
+
+        soundManager.playScroll(deltaY: event.scrollingDeltaY, volume: effectiveScrollVolume)
+    }
+
     func showOnboarding() {
         AppLog.info("AppModel", "Showing onboarding window", metadata: [
-            "hasInputMonitoringAccess": "\(permissionChecker.hasInputMonitoringAccess)",
+            "hasVerifiedAccessibilityAccess": "\(permissionChecker.hasVerifiedAccessibilityAccess)",
             "initialStep": "\(initialOnboardingStep().rawValue)",
-            "isInputMonitoringReady": "\(permissionChecker.isInputMonitoringReady)",
             "missingRequiredPermissions": "\(permissionChecker.isMissingRequiredPermissions)",
             "isTrusted": "\(permissionChecker.isTrusted)",
         ])
@@ -348,16 +372,6 @@ final class AppModel {
             return .accessibility
         }
 
-        if !permissionChecker.hasInputMonitoringAccess,
-           storedStep.rawValue > OnboardingStep.inputMonitoring.rawValue {
-            return .inputMonitoring
-        }
-
-        if !permissionChecker.isInputMonitoringReady,
-           storedStep.rawValue > OnboardingStep.inputMonitoring.rawValue {
-            return .inputMonitoring
-        }
-
         return storedStep
     }
 
@@ -385,9 +399,8 @@ final class AppModel {
         guard didFinishLaunching else { return }
 
         AppLog.info("AppModel", "Handled permission change", metadata: [
-            "hasInputMonitoringAccess": "\(permissionChecker.hasInputMonitoringAccess)",
+            "hasVerifiedAccessibilityAccess": "\(permissionChecker.hasVerifiedAccessibilityAccess)",
             "isEnabled": "\(isEnabled)",
-            "isInputMonitoringReady": "\(permissionChecker.isInputMonitoringReady)",
             "isTrusted": "\(permissionChecker.isTrusted)",
         ])
 

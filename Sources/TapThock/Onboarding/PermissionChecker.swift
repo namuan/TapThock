@@ -5,7 +5,7 @@ import Observation
 @Observable
 final class PermissionChecker {
     private enum Keys {
-        static let verifiedInputMonitoringAccess = "verifiedInputMonitoringAccess"
+        static let verifiedAccessibilityAccess = "verifiedAccessibilityAccess"
     }
 
     @ObservationIgnored private let defaults = UserDefaults.standard
@@ -20,68 +20,43 @@ final class PermissionChecker {
             onChange?()
         }
     }
-    var inputMonitoringAccessStatus = InputMonitoring.accessStatus {
+    var hasVerifiedAccessibilityAccess = UserDefaults.standard.bool(forKey: Keys.verifiedAccessibilityAccess) {
         didSet {
-            guard inputMonitoringAccessStatus != oldValue else { return }
-            AppLog.info("PermissionChecker", "Input Monitoring access status changed", metadata: [
-                "status": inputMonitoringAccessStatus.rawValue,
-            ])
-            onChange?()
-        }
-    }
-    var hasInputMonitoringAccess = InputMonitoring.hasAccess {
-        didSet {
-            guard hasInputMonitoringAccess != oldValue else { return }
-            AppLog.info("PermissionChecker", "Input Monitoring permission changed", metadata: [
-                "hasAccess": "\(hasInputMonitoringAccess)",
-            ])
-            onChange?()
-        }
-    }
-    var hasVerifiedInputMonitoringAccess = UserDefaults.standard.bool(forKey: Keys.verifiedInputMonitoringAccess) {
-        didSet {
-            guard hasVerifiedInputMonitoringAccess != oldValue else { return }
-            defaults.set(hasVerifiedInputMonitoringAccess, forKey: Keys.verifiedInputMonitoringAccess)
-            AppLog.info("PermissionChecker", "Input Monitoring verification changed", metadata: [
-                "isVerified": "\(hasVerifiedInputMonitoringAccess)",
+            guard hasVerifiedAccessibilityAccess != oldValue else { return }
+            defaults.set(hasVerifiedAccessibilityAccess, forKey: Keys.verifiedAccessibilityAccess)
+            AppLog.info("PermissionChecker", "Accessibility verification changed", metadata: [
+                "isVerified": "\(hasVerifiedAccessibilityAccess)",
             ])
             onChange?()
         }
     }
 
-    var isInputMonitoringReady: Bool {
-        hasInputMonitoringAccess && hasVerifiedInputMonitoringAccess
+    var isReady: Bool {
+        isTrusted && hasVerifiedAccessibilityAccess
     }
 
     var isMissingRequiredPermissions: Bool {
-        !isTrusted || !isInputMonitoringReady
+        !isReady
     }
 
     func refresh() {
-        let diagnostics = InputMonitoring.diagnostics
         let updatedAccessibility = Accessibility.isTrusted
-        let updatedInputMonitoringStatus = diagnostics.listenEventStatus
-        let updatedInputMonitoring = updatedInputMonitoringStatus == .granted
-
         isTrusted = updatedAccessibility
-        inputMonitoringAccessStatus = updatedInputMonitoringStatus
-        hasInputMonitoringAccess = updatedInputMonitoring
 
-        if !updatedInputMonitoring {
-            hasVerifiedInputMonitoringAccess = false
+        if !updatedAccessibility {
+            hasVerifiedAccessibilityAccess = false
         }
 
         AppLog.debug("PermissionChecker", "Refreshed permission state", metadata: [
-            "hasInputMonitoringAccess": "\(hasInputMonitoringAccess)",
-            "hasVerifiedInputMonitoringAccess": "\(hasVerifiedInputMonitoringAccess)",
+            "hasVerifiedAccessibilityAccess": "\(hasVerifiedAccessibilityAccess)",
             "isTrusted": "\(isTrusted)",
-        ].merging(diagnostics.metadata) { _, newValue in newValue })
+        ])
     }
 
     func startMonitoring() {
         refresh()
         AppLog.info("PermissionChecker", "Starting permission monitoring", metadata: [
-            "hasInputMonitoringAccess": "\(hasInputMonitoringAccess)",
+            "hasVerifiedAccessibilityAccess": "\(hasVerifiedAccessibilityAccess)",
             "isTrusted": "\(isTrusted)",
         ])
         timer?.invalidate()
@@ -101,21 +76,10 @@ final class PermissionChecker {
         ])
     }
 
-    func requestInputMonitoringAccess() {
-        AppLog.info("PermissionChecker", "Requesting input monitoring permission")
-        InputMonitoring.requestAccess()
-        refresh()
-        AppLog.info("PermissionChecker", "Input monitoring permission request finished", metadata: [
-            "hasAccess": "\(hasInputMonitoringAccess)",
-            "isVerified": "\(hasVerifiedInputMonitoringAccess)",
-            "status": inputMonitoringAccessStatus.rawValue,
-        ])
-    }
-
     func noteObservedGlobalKeyboardEvent() {
-        guard hasInputMonitoringAccess else { return }
-        hasVerifiedInputMonitoringAccess = true
-        AppLog.info("PermissionChecker", "Verified input monitoring via global keyboard capture")
+        guard isTrusted else { return }
+        hasVerifiedAccessibilityAccess = true
+        AppLog.info("PermissionChecker", "Verified accessibility via global keyboard capture")
     }
 
     func requestAccess() {
