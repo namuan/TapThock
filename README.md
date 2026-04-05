@@ -2,6 +2,8 @@
 
 TapThock is a SwiftPM-only macOS menu bar app that adds mechanical keyboard, mouse-click, and scroll-wheel sounds to global input with a native onboarding flow and generated built-in sound packs.
 
+![](assets/intro.png)
+
 ## Requirements
 
 - macOS 14 or later
