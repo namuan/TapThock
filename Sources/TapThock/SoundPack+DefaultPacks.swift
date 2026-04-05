@@ -153,18 +153,66 @@ private enum SoundPackRenderer {
         var samples = Array(repeating: Float.zero, count: frameCount)
         var generator = SeededGenerator(seed: UInt64(abs(profile.id.hashValue ^ flavor.seedOffset)))
 
+        // One-pole low-pass filter for noise (~5 kHz cutoff).
+        // Attenuates frequencies above ~5 kHz — real plastic/metal impacts are
+        // heavily damped by material, so raw white noise sounds artificially harsh.
+        let lpAlpha = 2.0 * Double.pi * 5000.0 / (2.0 * Double.pi * 5000.0 + sampleRate)
+        var impactLpState = 0.0
+        var bodyLpState = 0.0
+
+        // Low-frequency case thump — 0.28× primary lands in the 120–272 Hz range.
+        // Real gasket/plate assemblies resonate here; this is the "weight" that makes
+        // a thocky board feel different from a plastic beep.
+        let thumpFrequency = config.primaryFrequency * 0.28
+
+        // Loop-invariant phase multipliers and decay scalars — hoisted to avoid
+        // recomputing them across the ~44k iterations per sound file.
+        let twoPi = 2.0 * Double.pi
+        let primaryPhaseRate   = twoPi * config.primaryFrequency
+        let secondaryPhaseRate = twoPi * config.secondaryFrequency
+        let clickPhaseRate     = twoPi * config.secondaryFrequency * 1.4
+        let thumpPhaseRate     = twoPi * thumpFrequency
+        let clickDecay         = config.decay * 0.25
+        let thumpDecay         = config.decay * 3.5
+        let halfBrightness     = config.brightness * 0.5
+        let tonalMix           = 1.0 - config.noiseMix
+
         for frame in 0..<frameCount {
             let t = Double(frame) / sampleRate
-            let progress = t / config.duration
-            let attack = min(t / 0.0025, 1.0)
-            let envelope = attack * exp(-t / config.decay) * pow(max(1.0 - progress, 0.0), config.brightness)
-            let phase = 2.0 * Double.pi * config.primaryFrequency * t
-            let overtonePhase = 2.0 * Double.pi * config.secondaryFrequency * t
-            let tonal = sin(phase) * 0.72 + sin(overtonePhase) * 0.28
-            let noise = Double.random(in: -1.0...1.0, using: &generator)
-            let shapedNoise = noise * config.noiseMix * pow(max(1.0 - progress, 0.0), 2.0)
-            let transient = sin(phase * 1.5) * 0.12 * exp(-t / 0.012)
-            let sample = (tonal * (1.0 - config.noiseMix) + shapedNoise + transient) * envelope * config.gain
+            let remaining = max(1.0 - t / config.duration, 0.0)
+
+            // Near-instantaneous attack (~0.4 ms) — real key impact registers in < 0.5 ms.
+            let attack = min(t / 0.0004, 1.0)
+
+            // Three tonal components with independent decay times.
+            // A single exponential decay produces a homogeneous "beep"; real switch
+            // housings have multiple resonant modes that fade at different rates.
+
+            // 1. High-frequency click ring — fast decay, captures the initial crack.
+            let clickEnv = attack * exp(-t / clickDecay)
+            let click = sin(clickPhaseRate * t) * clickEnv * 0.20
+
+            // 2. Mid-frequency plate ping — main body resonance.
+            let plateEnv = attack * exp(-t / config.decay) * pow(remaining, config.brightness)
+            let plate = (sin(primaryPhaseRate * t) * 0.65 + sin(secondaryPhaseRate * t) * 0.35) * plateEnv * 0.52
+
+            // 3. Low-frequency case thump — slow decay, adds physical depth and weight.
+            let thumpEnv = attack * exp(-t / thumpDecay) * pow(remaining, halfBrightness)
+            let thump = sin(thumpPhaseRate * t) * thumpEnv * 0.36
+
+            // Low-pass filtered impact transient — broadband crack at contact.
+            // Filtering gives it warmth; raw white noise sounds digital above ~5 kHz.
+            let rawImpactNoise = Double.random(in: -1.0...1.0, using: &generator)
+            impactLpState += lpAlpha * (rawImpactNoise - impactLpState)
+            let impact = impactLpState * exp(-t / 0.003) * 0.50
+
+            // Filtered tactile noise — texture during body decay.
+            let rawBodyNoise = Double.random(in: -1.0...1.0, using: &generator)
+            bodyLpState += lpAlpha * (rawBodyNoise - bodyLpState)
+            let shapedNoise = bodyLpState * config.noiseMix * pow(remaining, 2.5)
+
+            let body = (click + plate + thump) * tonalMix + shapedNoise
+            let sample = (body + impact) * config.gain
             samples[frame] = Float(max(min(sample, 0.95), -0.95))
         }
 
