@@ -20,12 +20,6 @@ struct MenuBarContentView: View {
                     .foregroundStyle(.orange)
             }
 
-            if !permissionChecker.isInputMonitoringReady {
-                Label("Input Monitoring access is still required for global keyboard sounds in apps like Terminal.", systemImage: "exclamationmark.triangle.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.orange)
-            }
-
             Divider()
 
             VStack(alignment: .leading, spacing: 8) {

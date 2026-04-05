@@ -3,7 +3,6 @@ import SwiftUI
 enum OnboardingStep: Int, CaseIterable {
     case welcome
     case accessibility
-    case inputMonitoring
     case launchAtLogin
     case finish
 }
@@ -86,30 +85,6 @@ struct OnboardingView: View {
                         .foregroundStyle(.secondary)
                 }
             } primaryAction: {
-                currentStep = .inputMonitoring
-            }
-        case .inputMonitoring:
-            OnboardingStepView(
-                title: "Grant Input Monitoring",
-                subtitle: "TapThock also needs Input Monitoring permission so global keyboard events from apps like Terminal can reach the app.",
-                primaryActionTitle: "I've Granted It",
-                primaryDisabled: !permissionChecker.isInputMonitoringReady,
-                secondaryActionTitle: "Skip for Now",
-                secondaryAction: appModel.deferOnboarding
-            ) {
-                VStack(alignment: .leading, spacing: 18) {
-                    statusRow(
-                        title: "Status",
-                        value: inputMonitoringStatusText,
-                        tint: inputMonitoringStatusTint
-                    )
-                    Button("Grant Input Monitoring Access") {
-                        permissionChecker.requestInputMonitoringAccess()
-                    }
-                    Text("After enabling TapThock in System Settings > Privacy & Security > Input Monitoring, type a key in another app and return here. TapThock only marks this step complete after it actually sees a global key event.")
-                        .foregroundStyle(.secondary)
-                }
-            } primaryAction: {
                 currentStep = .launchAtLogin
             }
         case .launchAtLogin:
@@ -170,28 +145,5 @@ struct OnboardingView: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color(nsColor: .controlBackgroundColor))
         )
-    }
-
-    private var inputMonitoringStatusText: String {
-        if permissionChecker.isInputMonitoringReady {
-            return "Granted"
-        }
-
-        if permissionChecker.hasInputMonitoringAccess {
-            return "Awaiting Verification"
-        }
-
-        switch permissionChecker.inputMonitoringAccessStatus {
-        case .granted:
-            return "Awaiting Verification"
-        case .denied:
-            return "Not Granted"
-        case .unknown:
-            return "Pending Approval"
-        }
-    }
-
-    private var inputMonitoringStatusTint: Color {
-        permissionChecker.isInputMonitoringReady ? .green : .orange
     }
 }
