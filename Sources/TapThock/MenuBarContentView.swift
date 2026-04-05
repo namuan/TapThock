@@ -3,6 +3,7 @@ import SwiftUI
 struct MenuBarContentView: View {
     @Bindable var appModel: AppModel
     @Bindable var permissionChecker: PermissionChecker
+    @Environment(\.openSettings) private var openSettings
 
     init(appModel: AppModel) {
         self.appModel = appModel
@@ -36,10 +37,7 @@ struct MenuBarContentView: View {
                 }
                 Button("Settings") {
                     NSApp.activate(ignoringOtherApps: true)
-                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                    DispatchQueue.main.async {
-                        NSApp.windows.first { $0.title == "Settings" }?.makeKeyAndOrderFront(nil)
-                    }
+                    openSettings()
                 }
                 Button("Onboarding") {
                     appModel.showOnboarding()
