@@ -41,10 +41,9 @@ struct MenuBarContentView: View {
                         NSApp.windows.first { $0.title == "Settings" }?.makeKeyAndOrderFront(nil)
                     }
                 }
-            }
-
-            Button("Onboarding") {
-                appModel.showOnboarding()
+                Button("Onboarding") {
+                    appModel.showOnboarding()
+                }
             }
 
             if let statusMessage = appModel.statusMessage {
