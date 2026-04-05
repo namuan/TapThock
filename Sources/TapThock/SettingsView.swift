@@ -2,7 +2,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @Bindable var appModel: AppModel
-    @Bindable var permissionChecker: PermissionChecker
     @State private var previewText = ""
 
     private let columns = [
@@ -11,62 +10,39 @@ struct SettingsView: View {
 
     init(appModel: AppModel) {
         self.appModel = appModel
-        permissionChecker = appModel.permissionChecker
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                header
-                soundPackSection
-                volumeSection
-                typingPreviewSection
-                advancedSection
-            }
-            .padding(24)
+        TabView {
+            soundPacksTab
+                .tabItem { Label("Sound Packs", systemImage: "music.note.list") }
+
+            playbackTab
+                .tabItem { Label("Playback", systemImage: "speaker.wave.2") }
         }
-        .background(.background)
+        .padding(24)
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("TapThock")
-                .font(.largeTitle.weight(.semibold))
-            Text("Thocky mechanical typing + mouse clicks that feel alive")
-                .font(.title3)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private var soundPackSection: some View {
+    private var soundPacksTab: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("Sound Packs")
-                    .font(.title2.weight(.semibold))
-                Spacer()
-                Button("Preview Current Pack") {
-                    appModel.previewCurrentPack()
-                }
-            }
-
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
-                ForEach(appModel.availablePacks) { pack in
-                    Button {
-                        appModel.selectPack(pack, preview: true)
-                    } label: {
-                        SoundPackCard(pack: pack, isSelected: appModel.selectedPackID == pack.id)
+            ScrollView {
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
+                    ForEach(appModel.availablePacks) { pack in
+                        Button {
+                            appModel.selectPack(pack, preview: true)
+                        } label: {
+                            SoundPackCard(pack: pack, isSelected: appModel.selectedPackID == pack.id)
+                        }
+                        .buttonStyle(.plain)
+                        .focusEffectDisabled()
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
     }
 
-    private var volumeSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Playback")
-                .font(.title2.weight(.semibold))
-
+    private var playbackTab: some View {
+        HStack(alignment: .top, spacing: 20) {
             GroupBox {
                 VStack(alignment: .leading, spacing: 16) {
                     slider(title: "Master Volume", value: $appModel.masterVolume)
@@ -82,48 +58,22 @@ struct SettingsView: View {
                 }
                 .padding(8)
             }
-        }
-    }
+            .frame(maxWidth: .infinity)
 
-    private var typingPreviewSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Test Keyboard")
-                .font(.title2.weight(.semibold))
-            Text("Type in the field below to hear the currently selected pack without leaving settings.")
-                .foregroundStyle(.secondary)
-
-            TypingPreviewField(text: $previewText) { event in
-                appModel.preview(event: event)
-            }
-            .frame(height: 180)
-        }
-    }
-
-    private var advancedSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Advanced")
-                .font(.title2.weight(.semibold))
-
-            GroupBox {
-                VStack(alignment: .leading, spacing: 12) {
-                    Toggle("Launch at Login", isOn: $appModel.launchAtLogin)
-                    Toggle("Show in Dock", isOn: $appModel.showDockIcon)
-
-                    if !permissionChecker.isTrusted {
-                        Button("Grant Accessibility Access") {
-                            permissionChecker.requestAccessibilityAccess()
-                        }
-                    }
-
-                    if let statusMessage = appModel.statusMessage {
-                        Text(statusMessage)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Test Keyboard")
+                    .font(.headline)
+                Text("Type here to preview the current pack.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                TypingPreviewField(text: $previewText) { event in
+                    appModel.preview(event: event)
                 }
-                .padding(8)
+                .frame(maxHeight: .infinity)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .frame(maxHeight: .infinity)
     }
 
     private func slider(title: String, value: Binding<Double>) -> some View {
@@ -145,7 +95,7 @@ private struct SoundPackCard: View {
     let isSelected: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(pack.name)
                     .font(.headline)
@@ -154,26 +104,16 @@ private struct SoundPackCard: View {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "play.circle")
                     .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
             }
-            Text(pack.id.replacingOccurrences(of: "-", with: " "))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            RoundedRectangle(cornerRadius: 10)
-                .fill(isSelected ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.1))
-                .frame(height: 16)
-                .overlay(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(isSelected ? Color.accentColor : Color.secondary.opacity(0.45))
-                        .frame(width: isSelected ? 120 : 84)
-                }
+
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 106, alignment: .leading)
+        .padding(10)
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(Color(nsColor: .controlBackgroundColor))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(isSelected ? Color.accentColor : Color.secondary.opacity(0.18), lineWidth: 1)
         )
     }

@@ -3,6 +3,7 @@ import SwiftUI
 struct MenuBarContentView: View {
     @Bindable var appModel: AppModel
     @Bindable var permissionChecker: PermissionChecker
+    @Environment(\.openSettings) private var openSettings
 
     init(appModel: AppModel) {
         self.appModel = appModel
@@ -34,17 +35,26 @@ struct MenuBarContentView: View {
                 Button("Preview") {
                     appModel.previewCurrentPack()
                 }
-                SettingsLink {
-                    Text("Settings")
+                Button("Settings") {
+                    openSettings()
+                }
+                Button("Onboarding") {
+                    appModel.showOnboarding()
                 }
             }
 
-            Button("Onboarding") {
-                appModel.showOnboarding()
+            Divider()
+
+            Toggle("Launch at Login", isOn: $appModel.launchAtLogin)
+            Toggle("Show in Dock", isOn: $appModel.showDockIcon)
+
+            if !permissionChecker.isTrusted {
+                Button("Grant Accessibility Access") {
+                    permissionChecker.requestAccessibilityAccess()
+                }
             }
 
             if let statusMessage = appModel.statusMessage {
-                Divider()
                 Text(statusMessage)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
