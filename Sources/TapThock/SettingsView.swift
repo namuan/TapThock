@@ -17,7 +17,6 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                header
                 soundPackSection
                 volumeSection
                 typingPreviewSection
@@ -26,16 +25,6 @@ struct SettingsView: View {
             .padding(24)
         }
         .background(.background)
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("TapThock")
-                .font(.largeTitle.weight(.semibold))
-            Text("Thocky mechanical typing + mouse clicks that feel alive")
-                .font(.title3)
-                .foregroundStyle(.secondary)
-        }
     }
 
     private var soundPackSection: some View {
