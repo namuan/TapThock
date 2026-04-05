@@ -12,7 +12,10 @@ private struct PackCatalogEntry: Codable, Sendable {
 }
 
 extension SoundPack {
-    static func defaultPacks() throws -> [SoundPack] {
+    /// Loads (and on first run, renders) all default sound packs.
+    /// Rendering is CPU- and I/O-heavy; this function is `nonisolated` so it
+    /// can be called from a background task without blocking the main actor.
+    static nonisolated func defaultPacks() throws -> [SoundPack] {
         let entries = try loadPackCatalog()
         let rootURL = try generatedPackRootURL()
         AppLog.info("SoundPack", "Loading default sound packs", metadata: [
@@ -33,7 +36,7 @@ extension SoundPack {
         }
     }
 
-    private static func loadPackCatalog() throws -> [PackCatalogEntry] {
+    private static nonisolated func loadPackCatalog() throws -> [PackCatalogEntry] {
         guard let url = Bundle.module.url(forResource: "PackCatalog", withExtension: "json") else {
             throw NSError(domain: "TapThock", code: 1001, userInfo: [NSLocalizedDescriptionKey: "PackCatalog.json is missing from resources."])
         }
@@ -47,7 +50,7 @@ extension SoundPack {
         return entries
     }
 
-    private static func generatedPackRootURL() throws -> URL {
+    private static nonisolated func generatedPackRootURL() throws -> URL {
         let appSupport = try FileManager.default.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,

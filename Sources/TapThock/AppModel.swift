@@ -165,39 +165,62 @@ final class AppModel {
 
         statusBarManager.applyDockVisibility(showDockIcon)
         permissionChecker.startMonitoring()
-
-        do {
-            availablePacks = try SoundPack.defaultPacks()
-            if selectedPackID.isEmpty || !availablePacks.contains(where: { $0.id == selectedPackID }) {
-                selectedPackID = availablePacks.first?.id ?? ""
-            }
-            try soundManager.reload(with: availablePacks, selectedPackID: selectedPackID)
-            statusMessage = nil
-            AppLog.info("AppModel", "Loaded sound packs", metadata: [
-                "count": "\(availablePacks.count)",
-                "selectedPackID": selectedPackID,
-            ])
-        } catch {
-            statusMessage = "Unable to load sound packs: \(error.localizedDescription)"
-            AppLog.error("AppModel", "Failed to load sound packs", metadata: [
-                "error": error.localizedDescription,
-            ])
-        }
-
-        launchAtLogin = LaunchAtLogin.isEnabled
         refreshMonitoring()
 
-        AppLog.info("AppModel", "Evaluated onboarding state", metadata: [
-            "hasCompletedOnboarding": "\(hasCompletedOnboarding)",
-            "hasVerifiedAccessibilityAccess": "\(permissionChecker.hasVerifiedAccessibilityAccess)",
-            "missingRequiredPermissions": "\(permissionChecker.isMissingRequiredPermissions)",
-            "shouldShowOnboardingOnLaunch": "\(shouldShowOnboardingOnLaunch)",
-            "isTrusted": "\(permissionChecker.isTrusted)",
-        ])
+        // Run pack rendering (first-launch DSP) and the SMAppService IPC call
+        // on a background task so they never block the main actor.
+        Task { @MainActor in
+            let (packsResult, isLaunchAtLoginEnabled) = await Self.loadPacksAndLoginStatus()
 
-        if shouldShowOnboardingOnLaunch {
-            DispatchQueue.main.async { [weak self] in
-                self?.showOnboarding()
+            self.launchAtLogin = isLaunchAtLoginEnabled
+
+            switch packsResult {
+            case .success(let packs):
+                self.availablePacks = packs
+                if self.selectedPackID.isEmpty || !packs.contains(where: { $0.id == self.selectedPackID }) {
+                    self.selectedPackID = packs.first?.id ?? ""
+                }
+                do {
+                    try self.soundManager.reload(with: packs, selectedPackID: self.selectedPackID)
+                    self.statusMessage = nil
+                    AppLog.info("AppModel", "Loaded sound packs", metadata: [
+                        "count": "\(packs.count)",
+                        "selectedPackID": self.selectedPackID,
+                    ])
+                } catch {
+                    self.statusMessage = "Unable to load sound packs: \(error.localizedDescription)"
+                    AppLog.error("AppModel", "Failed to initialise audio engine", metadata: [
+                        "error": error.localizedDescription,
+                    ])
+                }
+            case .failure(let error):
+                self.statusMessage = "Unable to load sound packs: \(error.localizedDescription)"
+                AppLog.error("AppModel", "Failed to load sound packs", metadata: [
+                    "error": error.localizedDescription,
+                ])
+            }
+
+            AppLog.info("AppModel", "Evaluated onboarding state", metadata: [
+                "hasCompletedOnboarding": "\(self.hasCompletedOnboarding)",
+                "hasVerifiedAccessibilityAccess": "\(self.permissionChecker.hasVerifiedAccessibilityAccess)",
+                "missingRequiredPermissions": "\(self.permissionChecker.isMissingRequiredPermissions)",
+                "shouldShowOnboardingOnLaunch": "\(self.shouldShowOnboardingOnLaunch)",
+                "isTrusted": "\(self.permissionChecker.isTrusted)",
+            ])
+
+            if self.shouldShowOnboardingOnLaunch {
+                self.showOnboarding()
+            }
+        }
+    }
+
+    /// Loads sound packs and the launch-at-login status off the main actor.
+    private static nonisolated func loadPacksAndLoginStatus() async -> (Result<[SoundPack], any Error>, Bool) {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let packs = Result { try SoundPack.defaultPacks() }
+                let launchAtLogin = LaunchAtLogin.isEnabled
+                continuation.resume(returning: (packs, launchAtLogin))
             }
         }
     }
