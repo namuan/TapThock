@@ -106,14 +106,6 @@ private struct SoundPackCard: View {
             Text(pack.id.replacingOccurrences(of: "-", with: " "))
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isSelected ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.1))
-                .frame(height: 10)
-                .overlay(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(isSelected ? Color.accentColor : Color.secondary.opacity(0.45))
-                        .frame(width: isSelected ? 80 : 52)
-                }
         }
         .padding(10)
         .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
