@@ -94,7 +94,7 @@ private struct SoundPackCard: View {
     let isSelected: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(pack.name)
                     .font(.headline)
@@ -106,23 +106,23 @@ private struct SoundPackCard: View {
             Text(pack.id.replacingOccurrences(of: "-", with: " "))
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: 6)
                 .fill(isSelected ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.1))
-                .frame(height: 16)
+                .frame(height: 10)
                 .overlay(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: 6)
                         .fill(isSelected ? Color.accentColor : Color.secondary.opacity(0.45))
-                        .frame(width: isSelected ? 120 : 84)
+                        .frame(width: isSelected ? 80 : 52)
                 }
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 106, alignment: .leading)
+        .padding(10)
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(Color(nsColor: .controlBackgroundColor))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(isSelected ? Color.accentColor : Color.secondary.opacity(0.18), lineWidth: 1)
         )
     }
