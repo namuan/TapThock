@@ -10,6 +10,7 @@ struct TypingPreviewField: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSScrollView {
+        AppLog.info("TypingPreviewField", "Creating preview text view")
         let scrollView = NSScrollView()
         scrollView.drawsBackground = false
         scrollView.hasVerticalScroller = true
@@ -44,6 +45,9 @@ struct TypingPreviewField: NSViewRepresentable {
         func textDidChange(_ notification: Notification) {
             guard let textView = notification.object as? NSTextView else { return }
             text = textView.string
+            AppLog.debug("TypingPreviewField", "Preview text changed", metadata: [
+                "length": "\(text.count)",
+            ])
         }
     }
 }
@@ -52,6 +56,10 @@ final class PreviewTextView: NSTextView {
     var onKeyDown: ((NSEvent) -> Void)?
 
     override func keyDown(with event: NSEvent) {
+        AppLog.debug("TypingPreviewField", "Preview keyDown", metadata: [
+            "characters": event.charactersIgnoringModifiers ?? "",
+            "keyCode": "\(event.keyCode)",
+        ])
         onKeyDown?(event)
         super.keyDown(with: event)
     }

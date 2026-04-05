@@ -139,11 +139,25 @@ final class AppModel {
         hasCompletedOnboarding = defaults.object(forKey: Keys.hasCompletedOnboarding) as? Bool ?? false
         onboardingLastStep = defaults.object(forKey: Keys.onboardingLastStep) as? Int ?? 0
         eventMonitor = EventMonitor(appModel: self)
+
+        AppLog.info("AppModel", "Initialized persisted state", metadata: [
+            "hasCompletedOnboarding": "\(hasCompletedOnboarding)",
+            "isEnabled": "\(isEnabled)",
+            "keyboardEnabled": "\(keyboardEnabled)",
+            "launchAtLogin": "\(launchAtLogin)",
+            "masterVolume": String(format: "%.2f", masterVolume),
+            "mouseEnabled": "\(mouseEnabled)",
+            "scrollEnabled": "\(scrollEnabled)",
+            "selectedPackID": selectedPackID,
+            "showDockIcon": "\(showDockIcon)",
+        ])
     }
 
     func finishLaunching() {
         guard !didFinishLaunching else { return }
         didFinishLaunching = true
+
+        AppLog.info("AppModel", "Finishing launch")
 
         statusBarManager.applyDockVisibility(showDockIcon)
         permissionChecker.startMonitoring()
@@ -155,19 +169,38 @@ final class AppModel {
             }
             try soundManager.reload(with: availablePacks, selectedPackID: selectedPackID)
             statusMessage = nil
+            AppLog.info("AppModel", "Loaded sound packs", metadata: [
+                "count": "\(availablePacks.count)",
+                "selectedPackID": selectedPackID,
+            ])
         } catch {
             statusMessage = "Unable to load sound packs: \(error.localizedDescription)"
+            AppLog.error("AppModel", "Failed to load sound packs", metadata: [
+                "error": error.localizedDescription,
+            ])
         }
 
         launchAtLogin = LaunchAtLogin.isEnabled
         refreshMonitoring()
 
-        if !hasCompletedOnboarding {
-            showOnboarding()
+        AppLog.info("AppModel", "Evaluated onboarding state", metadata: [
+            "hasCompletedOnboarding": "\(hasCompletedOnboarding)",
+            "missingRequiredPermissions": "\(permissionChecker.isMissingRequiredPermissions)",
+            "shouldShowOnboardingOnLaunch": "\(shouldShowOnboardingOnLaunch)",
+        ])
+
+        if shouldShowOnboardingOnLaunch {
+            DispatchQueue.main.async { [weak self] in
+                self?.showOnboarding()
+            }
         }
     }
 
     func refreshMonitoring() {
+        AppLog.info("AppModel", "Refreshing event monitoring", metadata: [
+            "isEnabled": "\(isEnabled)",
+        ])
+
         if isEnabled {
             eventMonitor.start()
         } else {
@@ -177,44 +210,96 @@ final class AppModel {
 
     func toggleEnabled() {
         isEnabled.toggle()
+        AppLog.info("AppModel", "Toggled sound effects", metadata: [
+            "isEnabled": "\(isEnabled)",
+        ])
     }
 
     func selectPack(_ pack: SoundPack, preview: Bool = false) {
         selectedPackID = pack.id
+        AppLog.info("AppModel", "Selected sound pack", metadata: [
+            "packID": pack.id,
+            "preview": "\(preview)",
+        ])
         if preview {
             soundManager.preview(pack: pack, volume: effectiveKeyboardVolume)
         }
     }
 
     func previewCurrentPack() {
+        AppLog.info("AppModel", "Previewing current pack", metadata: [
+            "currentPackName": currentPackName,
+            "selectedPackID": selectedPackID,
+            "volume": String(format: "%.3f", effectiveKeyboardVolume),
+        ])
         soundManager.preview(pack: soundManager.currentPack, volume: effectiveKeyboardVolume)
     }
 
     func preview(event: NSEvent) {
+        AppLog.debug("AppModel", "Preview key received", metadata: [
+            "characters": event.charactersIgnoringModifiers ?? "",
+            "keyCode": "\(event.keyCode)",
+            "volume": String(format: "%.3f", effectiveKeyboardVolume),
+        ])
         soundManager.handlePreview(event: event, keyboardVolume: effectiveKeyboardVolume)
     }
 
     func playKeyboardSound(for event: NSEvent) {
-        guard isEnabled, keyboardEnabled else { return }
+        guard isEnabled, keyboardEnabled else {
+            AppLog.debug("AppModel", "Skipped keyboard sound", metadata: [
+                "isEnabled": "\(isEnabled)",
+                "keyboardEnabled": "\(keyboardEnabled)",
+                "keyCode": "\(event.keyCode)",
+            ])
+            return
+        }
+
         soundManager.playKeyboard(event: event, volume: effectiveKeyboardVolume)
     }
 
     func playMouseSound(button: MouseButton) {
-        guard isEnabled, mouseEnabled else { return }
+        guard isEnabled, mouseEnabled else {
+            AppLog.debug("AppModel", "Skipped mouse sound", metadata: [
+                "button": "\(button.keyType.rawValue)",
+                "isEnabled": "\(isEnabled)",
+                "mouseEnabled": "\(mouseEnabled)",
+            ])
+            return
+        }
+
         soundManager.playMouse(button: button, volume: effectiveMouseVolume)
     }
 
     func playScrollSound(deltaY: Double) {
-        guard isEnabled, scrollEnabled else { return }
+        guard isEnabled, scrollEnabled else {
+            AppLog.debug("AppModel", "Skipped scroll sound", metadata: [
+                "deltaY": String(format: "%.3f", deltaY),
+                "isEnabled": "\(isEnabled)",
+                "scrollEnabled": "\(scrollEnabled)",
+            ])
+            return
+        }
+
         soundManager.playScroll(deltaY: deltaY, volume: effectiveScrollVolume)
     }
 
     func showOnboarding() {
+        AppLog.info("AppModel", "Showing onboarding window", metadata: [
+            "initialStep": "\(initialOnboardingStep().rawValue)",
+            "missingRequiredPermissions": "\(permissionChecker.isMissingRequiredPermissions)",
+        ])
+
         if onboardingWindow == nil {
-            onboardingWindow = OnboardingWindow(appModel: self)
+            onboardingWindow = OnboardingWindow(appModel: self) { [weak self] in
+                guard let self else { return }
+                statusBarManager.endWindowPresentation(showDockIcon: showDockIcon)
+            }
         }
 
+        statusBarManager.beginWindowPresentation()
+        onboardingWindow?.center()
         onboardingWindow?.makeKeyAndOrderFront(nil)
+        onboardingWindow?.orderFrontRegardless()
         NSApp.activate(ignoringOtherApps: true)
     }
 
@@ -222,18 +307,38 @@ final class AppModel {
         hasCompletedOnboarding = true
         onboardingLastStep = OnboardingStep.finish.rawValue
         onboardingWindow?.orderOut(nil)
+        statusBarManager.endWindowPresentation(showDockIcon: showDockIcon)
+        AppLog.info("AppModel", "Completed onboarding")
     }
 
     func deferOnboarding() {
         onboardingWindow?.orderOut(nil)
+        statusBarManager.endWindowPresentation(showDockIcon: showDockIcon)
+        AppLog.info("AppModel", "Deferred onboarding")
     }
 
     func closeOnboarding() {
         onboardingWindow?.orderOut(nil)
+        statusBarManager.endWindowPresentation(showDockIcon: showDockIcon)
+        AppLog.info("AppModel", "Closed onboarding window")
     }
 
     func setOnboardingStep(_ step: OnboardingStep) {
         onboardingLastStep = step.rawValue
+        AppLog.info("AppModel", "Updated onboarding step", metadata: [
+            "step": "\(step.rawValue)",
+        ])
+    }
+
+    func initialOnboardingStep() -> OnboardingStep {
+        let storedStep = OnboardingStep(rawValue: onboardingLastStep) ?? .welcome
+
+        if permissionChecker.isMissingRequiredPermissions,
+           storedStep.rawValue > OnboardingStep.accessibility.rawValue {
+            return .accessibility
+        }
+
+        return storedStep
     }
 
     private var effectiveKeyboardVolume: Float {
@@ -250,5 +355,9 @@ final class AppModel {
 
     var currentPackName: String {
         soundManager.currentPack?.name ?? availablePacks.first?.name ?? "No Pack Selected"
+    }
+
+    private var shouldShowOnboardingOnLaunch: Bool {
+        !hasCompletedOnboarding || permissionChecker.isMissingRequiredPermissions
     }
 }

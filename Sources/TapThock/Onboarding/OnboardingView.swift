@@ -13,8 +13,7 @@ struct OnboardingView: View {
 
     init(appModel: AppModel) {
         self.appModel = appModel
-        let storedStep = OnboardingStep(rawValue: appModel.onboardingLastStep) ?? .welcome
-        _currentStep = State(initialValue: storedStep)
+        _currentStep = State(initialValue: appModel.initialOnboardingStep())
     }
 
     var body: some View {

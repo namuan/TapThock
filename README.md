@@ -14,10 +14,13 @@ xcrun swift build
 xcrun swift run TapThock
 ```
 
+Logs are written to `~/Library/Logs/TapThock/` with rolling log files and a live `current.log`.
+
 ## Packaging
 
 ```bash
 ./install.command
+./install.command --open
 ```
 
-That script creates the app bundle from a release build and installs `TapThock.app` into `~/Applications` without requiring an Xcode project.
+That script creates the app bundle from a release build, resets the app's Accessibility permission state, installs `TapThock.app` into `~/Applications`, and can optionally open it immediately with `--open`.

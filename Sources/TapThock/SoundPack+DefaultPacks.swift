@@ -15,6 +15,10 @@ extension SoundPack {
     static func defaultPacks() throws -> [SoundPack] {
         let entries = try loadPackCatalog()
         let rootURL = try generatedPackRootURL()
+        AppLog.info("SoundPack", "Loading default sound packs", metadata: [
+            "catalogEntryCount": "\(entries.count)",
+            "generatedPackRoot": rootURL.path,
+        ])
 
         return try entries.map { entry in
             let folderURL = rootURL.appending(path: entry.id, directoryHint: .isDirectory)
@@ -35,7 +39,12 @@ extension SoundPack {
         }
 
         let data = try Data(contentsOf: url)
-        return try JSONDecoder().decode([PackCatalogEntry].self, from: data)
+        let entries = try JSONDecoder().decode([PackCatalogEntry].self, from: data)
+        AppLog.info("SoundPack", "Loaded pack catalog", metadata: [
+            "entryCount": "\(entries.count)",
+            "resourceURL": url.path,
+        ])
+        return entries
     }
 
     private static func generatedPackRootURL() throws -> URL {
@@ -51,6 +60,9 @@ extension SoundPack {
             .appending(path: "GeneratedPacks", directoryHint: .isDirectory)
 
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: nil)
+        AppLog.info("SoundPack", "Prepared generated pack root", metadata: [
+            "path": root.path,
+        ])
         return root
     }
 }
@@ -58,11 +70,19 @@ extension SoundPack {
 private enum SoundPackRenderer {
     static func renderIfNeeded(entry: PackCatalogEntry, into folderURL: URL) throws {
         let markerURL = folderURL.appending(path: ".rendered")
-        if FileManager.default.fileExists(atPath: markerURL.path()) {
+        if FileManager.default.fileExists(atPath: markerURL.path) {
+            AppLog.debug("SoundPackRenderer", "Using cached generated pack", metadata: [
+                "packID": entry.id,
+                "path": folderURL.path,
+            ])
             return
         }
 
         try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true, attributes: nil)
+        AppLog.info("SoundPackRenderer", "Rendering generated pack", metadata: [
+            "packID": entry.id,
+            "path": folderURL.path,
+        ])
 
         for variant in 0..<4 {
             try writeSound(
@@ -86,6 +106,9 @@ private enum SoundPackRenderer {
         try writeSound(to: folderURL.appending(path: "scroll.caf"), profile: entry, flavor: .scroll)
 
         try Data(entry.id.utf8).write(to: markerURL, options: .atomic)
+        AppLog.info("SoundPackRenderer", "Finished rendering generated pack", metadata: [
+            "packID": entry.id,
+        ])
     }
 
     private static func writeSound(to url: URL, profile: PackCatalogEntry, flavor: Flavor) throws {
