@@ -44,8 +44,18 @@ struct MenuBarContentView: View {
                 }
             }
 
+            Divider()
+
+            Toggle("Launch at Login", isOn: $appModel.launchAtLogin)
+            Toggle("Show in Dock", isOn: $appModel.showDockIcon)
+
+            if !permissionChecker.isTrusted {
+                Button("Grant Accessibility Access") {
+                    permissionChecker.requestAccessibilityAccess()
+                }
+            }
+
             if let statusMessage = appModel.statusMessage {
-                Divider()
                 Text(statusMessage)
                     .font(.footnote)
                     .foregroundStyle(.secondary)

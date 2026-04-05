@@ -2,7 +2,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @Bindable var appModel: AppModel
-    @Bindable var permissionChecker: PermissionChecker
     @State private var previewText = ""
 
     private let columns = [
@@ -11,51 +10,47 @@ struct SettingsView: View {
 
     init(appModel: AppModel) {
         self.appModel = appModel
-        permissionChecker = appModel.permissionChecker
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                soundPackSection
-                volumeSection
-                typingPreviewSection
-                advancedSection
-            }
-            .padding(24)
+        TabView {
+            soundPacksTab
+                .tabItem { Label("Sound Packs", systemImage: "music.note.list") }
+
+            playbackTab
+                .tabItem { Label("Playback", systemImage: "speaker.wave.2") }
+
+            testKeyboardTab
+                .tabItem { Label("Test Keyboard", systemImage: "keyboard") }
         }
-        .background(.background)
+        .padding(24)
     }
 
-    private var soundPackSection: some View {
+    private var soundPacksTab: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Text("Sound Packs")
-                    .font(.title2.weight(.semibold))
                 Spacer()
                 Button("Preview Current Pack") {
                     appModel.previewCurrentPack()
                 }
             }
-
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
-                ForEach(appModel.availablePacks) { pack in
-                    Button {
-                        appModel.selectPack(pack, preview: true)
-                    } label: {
-                        SoundPackCard(pack: pack, isSelected: appModel.selectedPackID == pack.id)
+            ScrollView {
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
+                    ForEach(appModel.availablePacks) { pack in
+                        Button {
+                            appModel.selectPack(pack, preview: true)
+                        } label: {
+                            SoundPackCard(pack: pack, isSelected: appModel.selectedPackID == pack.id)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
     }
 
-    private var volumeSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Playback")
-                .font(.title2.weight(.semibold))
-
+    private var playbackTab: some View {
+        VStack(alignment: .leading, spacing: 0) {
             GroupBox {
                 VStack(alignment: .leading, spacing: 16) {
                     slider(title: "Master Volume", value: $appModel.masterVolume)
@@ -71,46 +66,17 @@ struct SettingsView: View {
                 }
                 .padding(8)
             }
+            Spacer()
         }
     }
 
-    private var typingPreviewSection: some View {
+    private var testKeyboardTab: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Test Keyboard")
-                .font(.title2.weight(.semibold))
             Text("Type in the field below to hear the currently selected pack without leaving settings.")
                 .foregroundStyle(.secondary)
 
             TypingPreviewField(text: $previewText) { event in
                 appModel.preview(event: event)
-            }
-            .frame(height: 180)
-        }
-    }
-
-    private var advancedSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Advanced")
-                .font(.title2.weight(.semibold))
-
-            GroupBox {
-                VStack(alignment: .leading, spacing: 12) {
-                    Toggle("Launch at Login", isOn: $appModel.launchAtLogin)
-                    Toggle("Show in Dock", isOn: $appModel.showDockIcon)
-
-                    if !permissionChecker.isTrusted {
-                        Button("Grant Accessibility Access") {
-                            permissionChecker.requestAccessibilityAccess()
-                        }
-                    }
-
-                    if let statusMessage = appModel.statusMessage {
-                        Text(statusMessage)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(8)
             }
         }
     }
