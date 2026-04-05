@@ -10,10 +10,12 @@ enum OnboardingStep: Int, CaseIterable {
 
 struct OnboardingView: View {
     @Bindable var appModel: AppModel
+    @Bindable var permissionChecker: PermissionChecker
     @State private var currentStep: OnboardingStep
 
     init(appModel: AppModel) {
         self.appModel = appModel
+        permissionChecker = appModel.permissionChecker
         _currentStep = State(initialValue: appModel.initialOnboardingStep())
     }
 
@@ -70,15 +72,15 @@ struct OnboardingView: View {
             OnboardingStepView(
                 title: "Grant Accessibility Access",
                 subtitle: "TapThock needs Accessibility permission so it can hear your key presses anywhere on your Mac and play sounds instantly.",
-                primaryActionTitle: appModel.permissionChecker.isTrusted ? "I've Granted It" : "I've Granted It",
-                primaryDisabled: !appModel.permissionChecker.isTrusted,
+                primaryActionTitle: "I've Granted It",
+                primaryDisabled: !permissionChecker.isTrusted,
                 secondaryActionTitle: "Skip for Now",
                 secondaryAction: appModel.deferOnboarding
             ) {
                 VStack(alignment: .leading, spacing: 18) {
-                    statusRow(title: "Status", value: appModel.permissionChecker.isTrusted ? "Granted" : "Not Granted", tint: appModel.permissionChecker.isTrusted ? .green : .orange)
+                    statusRow(title: "Status", value: permissionChecker.isTrusted ? "Granted" : "Not Granted", tint: permissionChecker.isTrusted ? .green : .orange)
                     Button("Grant Accessibility Access") {
-                        appModel.permissionChecker.requestAccessibilityAccess()
+                        permissionChecker.requestAccessibilityAccess()
                     }
                     Text("After enabling TapThock in System Settings > Privacy & Security > Accessibility, return here and the button above becomes available automatically.")
                         .foregroundStyle(.secondary)
@@ -91,20 +93,20 @@ struct OnboardingView: View {
                 title: "Grant Input Monitoring",
                 subtitle: "TapThock also needs Input Monitoring permission so global keyboard events from apps like Terminal can reach the app.",
                 primaryActionTitle: "I've Granted It",
-                primaryDisabled: !appModel.permissionChecker.hasInputMonitoringAccess,
+                primaryDisabled: !permissionChecker.isInputMonitoringReady,
                 secondaryActionTitle: "Skip for Now",
                 secondaryAction: appModel.deferOnboarding
             ) {
                 VStack(alignment: .leading, spacing: 18) {
                     statusRow(
                         title: "Status",
-                        value: appModel.permissionChecker.hasInputMonitoringAccess ? "Granted" : "Not Granted",
-                        tint: appModel.permissionChecker.hasInputMonitoringAccess ? .green : .orange
+                        value: inputMonitoringStatusText,
+                        tint: inputMonitoringStatusTint
                     )
                     Button("Grant Input Monitoring Access") {
-                        appModel.permissionChecker.requestInputMonitoringAccess()
+                        permissionChecker.requestInputMonitoringAccess()
                     }
-                    Text("After enabling TapThock in System Settings > Privacy & Security > Input Monitoring, return here and the button above becomes available automatically.")
+                    Text("After enabling TapThock in System Settings > Privacy & Security > Input Monitoring, type a key in another app and return here. TapThock only marks this step complete after it actually sees a global key event.")
                         .foregroundStyle(.secondary)
                 }
             } primaryAction: {
@@ -168,5 +170,28 @@ struct OnboardingView: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color(nsColor: .controlBackgroundColor))
         )
+    }
+
+    private var inputMonitoringStatusText: String {
+        if permissionChecker.isInputMonitoringReady {
+            return "Granted"
+        }
+
+        if permissionChecker.hasInputMonitoringAccess {
+            return "Awaiting Verification"
+        }
+
+        switch permissionChecker.inputMonitoringAccessStatus {
+        case .granted:
+            return "Awaiting Verification"
+        case .denied:
+            return "Not Granted"
+        case .unknown:
+            return "Pending Approval"
+        }
+    }
+
+    private var inputMonitoringStatusTint: Color {
+        permissionChecker.isInputMonitoringReady ? .green : .orange
     }
 }

@@ -26,6 +26,7 @@ final class EventMonitor {
                 "keyCode": "\(event.keyCode)",
             ])
             Task { @MainActor [weak self] in
+                self?.appModel?.noteObservedGlobalKeyboardEvent()
                 self?.appModel?.playKeyboardSound(for: event)
             }
         }

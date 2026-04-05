@@ -2,11 +2,17 @@ import SwiftUI
 
 struct SettingsView: View {
     @Bindable var appModel: AppModel
+    @Bindable var permissionChecker: PermissionChecker
     @State private var previewText = ""
 
     private let columns = [
         GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 14),
     ]
+
+    init(appModel: AppModel) {
+        self.appModel = appModel
+        permissionChecker = appModel.permissionChecker
+    }
 
     var body: some View {
         ScrollView {
@@ -103,15 +109,15 @@ struct SettingsView: View {
                     Toggle("Launch at Login", isOn: $appModel.launchAtLogin)
                     Toggle("Show in Dock", isOn: $appModel.showDockIcon)
 
-                    if !appModel.permissionChecker.isTrusted {
+                    if !permissionChecker.isTrusted {
                         Button("Grant Accessibility Access") {
-                            appModel.permissionChecker.requestAccessibilityAccess()
+                            permissionChecker.requestAccessibilityAccess()
                         }
                     }
 
-                    if !appModel.permissionChecker.hasInputMonitoringAccess {
+                    if !permissionChecker.isInputMonitoringReady {
                         Button("Grant Input Monitoring Access") {
-                            appModel.permissionChecker.requestInputMonitoringAccess()
+                            permissionChecker.requestInputMonitoringAccess()
                         }
                     }
 

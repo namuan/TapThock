@@ -139,6 +139,9 @@ final class AppModel {
         hasCompletedOnboarding = defaults.object(forKey: Keys.hasCompletedOnboarding) as? Bool ?? false
         onboardingLastStep = defaults.object(forKey: Keys.onboardingLastStep) as? Int ?? 0
         eventMonitor = EventMonitor(appModel: self)
+        permissionChecker.onChange = { [weak self] in
+            self?.handlePermissionChange()
+        }
 
         AppLog.info("AppModel", "Initialized persisted state", metadata: [
             "hasCompletedOnboarding": "\(hasCompletedOnboarding)",
@@ -147,6 +150,7 @@ final class AppModel {
             "launchAtLogin": "\(launchAtLogin)",
             "masterVolume": String(format: "%.2f", masterVolume),
             "mouseEnabled": "\(mouseEnabled)",
+            "verifiedInputMonitoringAccess": "\(permissionChecker.hasVerifiedInputMonitoringAccess)",
             "scrollEnabled": "\(scrollEnabled)",
             "selectedPackID": selectedPackID,
             "showDockIcon": "\(showDockIcon)",
@@ -186,6 +190,7 @@ final class AppModel {
         AppLog.info("AppModel", "Evaluated onboarding state", metadata: [
             "hasCompletedOnboarding": "\(hasCompletedOnboarding)",
             "hasInputMonitoringAccess": "\(permissionChecker.hasInputMonitoringAccess)",
+            "isInputMonitoringReady": "\(permissionChecker.isInputMonitoringReady)",
             "missingRequiredPermissions": "\(permissionChecker.isMissingRequiredPermissions)",
             "shouldShowOnboardingOnLaunch": "\(shouldShowOnboardingOnLaunch)",
             "isTrusted": "\(permissionChecker.isTrusted)",
@@ -289,6 +294,7 @@ final class AppModel {
         AppLog.info("AppModel", "Showing onboarding window", metadata: [
             "hasInputMonitoringAccess": "\(permissionChecker.hasInputMonitoringAccess)",
             "initialStep": "\(initialOnboardingStep().rawValue)",
+            "isInputMonitoringReady": "\(permissionChecker.isInputMonitoringReady)",
             "missingRequiredPermissions": "\(permissionChecker.isMissingRequiredPermissions)",
             "isTrusted": "\(permissionChecker.isTrusted)",
         ])
@@ -347,6 +353,11 @@ final class AppModel {
             return .inputMonitoring
         }
 
+        if !permissionChecker.isInputMonitoringReady,
+           storedStep.rawValue > OnboardingStep.inputMonitoring.rawValue {
+            return .inputMonitoring
+        }
+
         return storedStep
     }
 
@@ -368,5 +379,24 @@ final class AppModel {
 
     private var shouldShowOnboardingOnLaunch: Bool {
         !hasCompletedOnboarding || permissionChecker.isMissingRequiredPermissions
+    }
+
+    private func handlePermissionChange() {
+        guard didFinishLaunching else { return }
+
+        AppLog.info("AppModel", "Handled permission change", metadata: [
+            "hasInputMonitoringAccess": "\(permissionChecker.hasInputMonitoringAccess)",
+            "isEnabled": "\(isEnabled)",
+            "isInputMonitoringReady": "\(permissionChecker.isInputMonitoringReady)",
+            "isTrusted": "\(permissionChecker.isTrusted)",
+        ])
+
+        guard isEnabled else { return }
+        eventMonitor.stop()
+        eventMonitor.start()
+    }
+
+    func noteObservedGlobalKeyboardEvent() {
+        permissionChecker.noteObservedGlobalKeyboardEvent()
     }
 }

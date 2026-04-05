@@ -2,19 +2,25 @@ import SwiftUI
 
 struct MenuBarContentView: View {
     @Bindable var appModel: AppModel
+    @Bindable var permissionChecker: PermissionChecker
+
+    init(appModel: AppModel) {
+        self.appModel = appModel
+        permissionChecker = appModel.permissionChecker
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Toggle("Sound effects enabled", isOn: $appModel.isEnabled)
                 .toggleStyle(.switch)
 
-            if !appModel.permissionChecker.isTrusted {
+            if !permissionChecker.isTrusted {
                 Label("Accessibility access is still required for global keyboard sounds.", systemImage: "exclamationmark.triangle.fill")
                     .font(.footnote)
                     .foregroundStyle(.orange)
             }
 
-            if !appModel.permissionChecker.hasInputMonitoringAccess {
+            if !permissionChecker.isInputMonitoringReady {
                 Label("Input Monitoring access is still required for global keyboard sounds in apps like Terminal.", systemImage: "exclamationmark.triangle.fill")
                     .font(.footnote)
                     .foregroundStyle(.orange)
