@@ -185,8 +185,10 @@ final class AppModel {
 
         AppLog.info("AppModel", "Evaluated onboarding state", metadata: [
             "hasCompletedOnboarding": "\(hasCompletedOnboarding)",
+            "hasInputMonitoringAccess": "\(permissionChecker.hasInputMonitoringAccess)",
             "missingRequiredPermissions": "\(permissionChecker.isMissingRequiredPermissions)",
             "shouldShowOnboardingOnLaunch": "\(shouldShowOnboardingOnLaunch)",
+            "isTrusted": "\(permissionChecker.isTrusted)",
         ])
 
         if shouldShowOnboardingOnLaunch {
@@ -285,8 +287,10 @@ final class AppModel {
 
     func showOnboarding() {
         AppLog.info("AppModel", "Showing onboarding window", metadata: [
+            "hasInputMonitoringAccess": "\(permissionChecker.hasInputMonitoringAccess)",
             "initialStep": "\(initialOnboardingStep().rawValue)",
             "missingRequiredPermissions": "\(permissionChecker.isMissingRequiredPermissions)",
+            "isTrusted": "\(permissionChecker.isTrusted)",
         ])
 
         if onboardingWindow == nil {
@@ -333,9 +337,14 @@ final class AppModel {
     func initialOnboardingStep() -> OnboardingStep {
         let storedStep = OnboardingStep(rawValue: onboardingLastStep) ?? .welcome
 
-        if permissionChecker.isMissingRequiredPermissions,
+        if !permissionChecker.isTrusted,
            storedStep.rawValue > OnboardingStep.accessibility.rawValue {
             return .accessibility
+        }
+
+        if !permissionChecker.hasInputMonitoringAccess,
+           storedStep.rawValue > OnboardingStep.inputMonitoring.rawValue {
+            return .inputMonitoring
         }
 
         return storedStep

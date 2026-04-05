@@ -3,6 +3,7 @@ import SwiftUI
 enum OnboardingStep: Int, CaseIterable {
     case welcome
     case accessibility
+    case inputMonitoring
     case launchAtLogin
     case finish
 }
@@ -77,9 +78,33 @@ struct OnboardingView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     statusRow(title: "Status", value: appModel.permissionChecker.isTrusted ? "Granted" : "Not Granted", tint: appModel.permissionChecker.isTrusted ? .green : .orange)
                     Button("Grant Accessibility Access") {
-                        appModel.permissionChecker.requestAccess()
+                        appModel.permissionChecker.requestAccessibilityAccess()
                     }
                     Text("After enabling TapThock in System Settings > Privacy & Security > Accessibility, return here and the button above becomes available automatically.")
+                        .foregroundStyle(.secondary)
+                }
+            } primaryAction: {
+                currentStep = .inputMonitoring
+            }
+        case .inputMonitoring:
+            OnboardingStepView(
+                title: "Grant Input Monitoring",
+                subtitle: "TapThock also needs Input Monitoring permission so global keyboard events from apps like Terminal can reach the app.",
+                primaryActionTitle: "I've Granted It",
+                primaryDisabled: !appModel.permissionChecker.hasInputMonitoringAccess,
+                secondaryActionTitle: "Skip for Now",
+                secondaryAction: appModel.deferOnboarding
+            ) {
+                VStack(alignment: .leading, spacing: 18) {
+                    statusRow(
+                        title: "Status",
+                        value: appModel.permissionChecker.hasInputMonitoringAccess ? "Granted" : "Not Granted",
+                        tint: appModel.permissionChecker.hasInputMonitoringAccess ? .green : .orange
+                    )
+                    Button("Grant Input Monitoring Access") {
+                        appModel.permissionChecker.requestInputMonitoringAccess()
+                    }
+                    Text("After enabling TapThock in System Settings > Privacy & Security > Input Monitoring, return here and the button above becomes available automatically.")
                         .foregroundStyle(.secondary)
                 }
             } primaryAction: {

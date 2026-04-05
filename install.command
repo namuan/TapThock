@@ -17,6 +17,16 @@ RESOURCES_DIR="$CONTENTS_DIR/Resources"
 BUILD_ARGS=(-c "$CONFIGURATION")
 SHOULD_OPEN=false
 
+reset_permission() {
+  local service="$1"
+
+  if tccutil reset "$service" "$BUNDLE_ID" >/dev/null 2>&1; then
+    echo "Reset $service permissions for $BUNDLE_ID"
+  else
+    echo "Warning: unable to reset $service permissions for $BUNDLE_ID" >&2
+  fi
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --open)
@@ -80,7 +90,8 @@ chmod +x "$MACOS_DIR/$APP_NAME"
 codesign --force --deep --sign - "$APP_DIR" >/dev/null 2>&1 || true
 
 mkdir -p "$INSTALL_DIR"
-tccutil reset Accessibility "$BUNDLE_ID"
+reset_permission Accessibility
+reset_permission ListenEvent
 rm -rf "$INSTALLED_APP_DIR"
 mv "$APP_DIR" "$INSTALLED_APP_DIR"
 

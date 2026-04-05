@@ -105,7 +105,13 @@ struct SettingsView: View {
 
                     if !appModel.permissionChecker.isTrusted {
                         Button("Grant Accessibility Access") {
-                            appModel.permissionChecker.requestAccess()
+                            appModel.permissionChecker.requestAccessibilityAccess()
+                        }
+                    }
+
+                    if !appModel.permissionChecker.hasInputMonitoringAccess {
+                        Button("Grant Input Monitoring Access") {
+                            appModel.permissionChecker.requestInputMonitoringAccess()
                         }
                     }
 
