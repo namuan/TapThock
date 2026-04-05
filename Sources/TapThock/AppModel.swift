@@ -20,7 +20,6 @@ final class AppModel {
         static let launchAtLogin = "launchAtLogin"
         static let showDockIcon = "showDockIcon"
         static let hasCompletedOnboarding = "hasCompletedOnboarding"
-        static let onboardingLastStep = "onboardingLastStep"
     }
 
     let permissionChecker = PermissionChecker()
@@ -117,12 +116,6 @@ final class AppModel {
         }
     }
 
-    var onboardingLastStep: Int {
-        didSet {
-            defaults.set(onboardingLastStep, forKey: Keys.onboardingLastStep)
-        }
-    }
-
     private init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         selectedPackID = defaults.string(forKey: Keys.selectedPackID) ?? ""
@@ -137,7 +130,6 @@ final class AppModel {
         launchAtLogin = defaults.object(forKey: Keys.launchAtLogin) as? Bool ?? false
         showDockIcon = defaults.object(forKey: Keys.showDockIcon) as? Bool ?? false
         hasCompletedOnboarding = defaults.object(forKey: Keys.hasCompletedOnboarding) as? Bool ?? false
-        onboardingLastStep = defaults.object(forKey: Keys.onboardingLastStep) as? Int ?? 0
         eventMonitor = EventMonitor(appModel: self)
         permissionChecker.onChange = { [weak self] in
             self?.handlePermissionChange()
@@ -339,9 +331,12 @@ final class AppModel {
     }
 
     func showOnboarding() {
+        if permissionChecker.isTrusted {
+            completeOnboarding()
+            return
+        }
+
         AppLog.info("AppModel", "Showing onboarding window", metadata: [
-            "hasVerifiedAccessibilityAccess": "\(permissionChecker.hasVerifiedAccessibilityAccess)",
-            "initialStep": "\(initialOnboardingStep().rawValue)",
             "missingRequiredPermissions": "\(permissionChecker.isMissingRequiredPermissions)",
             "isTrusted": "\(permissionChecker.isTrusted)",
         ])
@@ -362,7 +357,6 @@ final class AppModel {
 
     func completeOnboarding() {
         hasCompletedOnboarding = true
-        onboardingLastStep = OnboardingStep.finish.rawValue
         onboardingWindow?.orderOut(nil)
         statusBarManager.endWindowPresentation(showDockIcon: showDockIcon)
         AppLog.info("AppModel", "Completed onboarding")
@@ -378,24 +372,6 @@ final class AppModel {
         onboardingWindow?.orderOut(nil)
         statusBarManager.endWindowPresentation(showDockIcon: showDockIcon)
         AppLog.info("AppModel", "Closed onboarding window")
-    }
-
-    func setOnboardingStep(_ step: OnboardingStep) {
-        onboardingLastStep = step.rawValue
-        AppLog.info("AppModel", "Updated onboarding step", metadata: [
-            "step": "\(step.rawValue)",
-        ])
-    }
-
-    func initialOnboardingStep() -> OnboardingStep {
-        let storedStep = OnboardingStep(rawValue: onboardingLastStep) ?? .welcome
-
-        if !permissionChecker.isTrusted,
-           storedStep.rawValue > OnboardingStep.accessibility.rawValue {
-            return .accessibility
-        }
-
-        return storedStep
     }
 
     private var effectiveKeyboardVolume: Float {

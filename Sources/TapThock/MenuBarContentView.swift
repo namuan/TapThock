@@ -34,8 +34,12 @@ struct MenuBarContentView: View {
                 Button("Preview") {
                     appModel.previewCurrentPack()
                 }
-                SettingsLink {
-                    Text("Settings")
+                Button("Settings") {
+                    NSApp.activate(ignoringOtherApps: true)
+                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                    DispatchQueue.main.async {
+                        NSApp.windows.first { $0.title == "Settings" }?.makeKeyAndOrderFront(nil)
+                    }
                 }
             }
 
