@@ -10,7 +10,7 @@ final class OnboardingWindow: NSWindow, NSWindowDelegate {
             contentRect: NSRect(x: 0, y: 0, width: 820, height: 560),
             styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
-            defer: false
+            defer: true
         )
 
         title = "Welcome to TapThock"

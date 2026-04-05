@@ -9,25 +9,36 @@ final class SoundManager {
     private(set) var currentPack: SoundPack?
     private var audioPool: AudioPlayerPool?
 
+    /// Stores all known packs but only loads audio for the selected one.
     func reload(with packs: [SoundPack], selectedPackID: String) throws {
         AppLog.info("SoundManager", "Reloading sound manager", metadata: [
             "packCount": "\(packs.count)",
             "selectedPackID": selectedPackID,
         ])
         self.packs = packs
-        audioPool = try AudioPlayerPool(urls: Array(Set(packs.flatMap(\.allURLs))))
-        currentPack = packs.first(where: { $0.id == selectedPackID }) ?? packs.first
+        let selected = packs.first(where: { $0.id == selectedPackID }) ?? packs.first
+        currentPack = selected
+        try loadPool(for: selected)
         AppLog.info("SoundManager", "Sound manager ready", metadata: [
             "currentPackID": currentPack?.id ?? "nil",
         ])
     }
 
     func selectPack(id: String) {
-        currentPack = packs.first(where: { $0.id == id }) ?? packs.first
+        let pack = packs.first(where: { $0.id == id }) ?? packs.first
+        currentPack = pack
         AppLog.info("SoundManager", "Selected active pack", metadata: [
             "currentPackID": currentPack?.id ?? "nil",
             "requestedPackID": id,
         ])
+        do {
+            try loadPool(for: pack)
+        } catch {
+            AppLog.error("SoundManager", "Failed to load pool for selected pack", metadata: [
+                "error": error.localizedDescription,
+                "packID": id,
+            ])
+        }
     }
 
     func playKeyboard(event: NSEvent, volume: Float) {
@@ -123,22 +134,27 @@ final class SoundManager {
         playKeyboard(event: event, volume: keyboardVolume)
     }
 
-    private func play(url: URL, volume: Float, rate: Double) {
-        let playbackRate = Float(max(0.98, min(1.02, 1.0 + rate)))
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            AppLog.error("SoundManager", "Audio file does not exist", metadata: [
-                "path": url.path,
-            ])
+    // MARK: - Private
+
+    private func loadPool(for pack: SoundPack?) throws {
+        guard let pack else {
+            audioPool = nil
             return
         }
+        AppLog.info("SoundManager", "Loading audio pool for pack", metadata: [
+            "packID": pack.id,
+            "urlCount": "\(pack.allURLs.count)",
+        ])
+        audioPool = try AudioPlayerPool(urls: pack.allURLs)
+    }
 
-        guard audioPool != nil else {
+    private func play(url: URL, volume: Float, rate: Double) {
+        guard let audioPool else {
             AppLog.error("SoundManager", "Audio pool is unavailable", metadata: [
                 "filename": url.lastPathComponent,
             ])
             return
         }
-
-        audioPool?.play(url: url, volume: volume, rate: playbackRate)
+        audioPool.play(url: url, volume: volume, rate: Float(max(0.98, min(1.02, 1.0 + rate))))
     }
 }

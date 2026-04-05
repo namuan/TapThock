@@ -41,6 +41,13 @@ private final class AppLogger: @unchecked Sendable {
     private let timestampFormatter: ISO8601DateFormatter
     private let archiveDateFormatter: DateFormatter
 
+    // Persistent file handle — opened once and kept open for the session.
+    // Access is serialised by `queue`.
+    private var fileHandle: FileHandle?
+    // Approximate byte count written in this session; avoids a stat() call on
+    // every write for the rotation check.
+    private var approximateFileSize: UInt64 = 0
+
     private init(appName: String, fileManager: FileManager = .default) {
         self.fileManager = fileManager
 
@@ -56,9 +63,10 @@ private final class AppLogger: @unchecked Sendable {
         archiveDateFormatter.locale = Locale(identifier: "en_US_POSIX")
         archiveDateFormatter.dateFormat = "yyyyMMdd-HHmmss"
 
-        queue.sync {
+        // Schedule setup asynchronously so init never blocks the main thread.
+        queue.async { [self] in
             prepareLogDirectory()
-            rotateIfNeeded()
+            openFileHandle()
             writeSessionHeader()
         }
     }
@@ -92,6 +100,19 @@ private final class AppLogger: @unchecked Sendable {
         }
     }
 
+    /// Opens the persistent file handle and seeks to end, capturing the
+    /// current file size for the rotation heuristic.
+    private func openFileHandle() {
+        do {
+            let handle = try FileHandle(forWritingTo: currentLogURL)
+            let endOffset = try handle.seekToEnd()
+            approximateFileSize = endOffset
+            fileHandle = handle
+        } catch {
+            fputs("TapThock log handle open failed: \(error)\n", stderr)
+        }
+    }
+
     private func writeSessionHeader() {
         let processInfo = ProcessInfo.processInfo
         append("=== Session started pid=\(processInfo.processIdentifier) at \(timestampFormatter.string(from: Date())) ===\n")
@@ -99,11 +120,11 @@ private final class AppLogger: @unchecked Sendable {
     }
 
     private func rotateIfNeeded() {
-        guard let attributes = try? fileManager.attributesOfItem(atPath: currentLogURL.path),
-              let fileSize = attributes[.size] as? NSNumber,
-              fileSize.uint64Value >= Constants.maxFileSizeBytes else {
-            return
-        }
+        guard approximateFileSize >= Constants.maxFileSizeBytes else { return }
+
+        // Close the current handle before rotating the file.
+        try? fileHandle?.close()
+        fileHandle = nil
 
         let archiveURL = logsDirectoryURL.appending(path: "TapThock-\(archiveDateFormatter.string(from: Date())).log")
         do {
@@ -113,10 +134,13 @@ private final class AppLogger: @unchecked Sendable {
             try fileManager.moveItem(at: currentLogURL, to: archiveURL)
             fileManager.createFile(atPath: currentLogURL.path, contents: nil)
             pruneArchivedLogs()
-            append("=== Log rotated at \(timestampFormatter.string(from: Date())) ===\n")
         } catch {
             fputs("TapThock log rotation failed: \(error)\n", stderr)
         }
+
+        // Re-open handle pointing at the fresh empty file.
+        openFileHandle()
+        append("=== Log rotated at \(timestampFormatter.string(from: Date())) ===\n")
     }
 
     private func pruneArchivedLogs() {
@@ -144,13 +168,10 @@ private final class AppLogger: @unchecked Sendable {
     }
 
     private func append(_ line: String) {
-        guard let data = line.data(using: .utf8) else { return }
-
+        guard let data = line.data(using: .utf8), let handle = fileHandle else { return }
         do {
-            let handle = try FileHandle(forWritingTo: currentLogURL)
-            defer { try? handle.close() }
-            try handle.seekToEnd()
             try handle.write(contentsOf: data)
+            approximateFileSize += UInt64(data.count)
         } catch {
             fputs("TapThock log write failed: \(error)\n", stderr)
         }

@@ -78,20 +78,20 @@ final class EventMonitor {
                 "characters": characters,
                 "keyCode": "\(keyCode)",
             ])
-            Task { @MainActor [weak self] in
+            DispatchQueue.main.async { [weak self] in
                 self?.appModel?.noteObservedGlobalKeyboardEvent()
                 self?.appModel?.playKeyboardSound(for: event)
             }
 
         case .leftMouseDown:
             AppLog.debug("EventMonitor", "Captured left mouse down")
-            Task { @MainActor [weak self] in
+            DispatchQueue.main.async { [weak self] in
                 self?.appModel?.playMouseSound(button: .left)
             }
 
         case .rightMouseDown:
             AppLog.debug("EventMonitor", "Captured right mouse down")
-            Task { @MainActor [weak self] in
+            DispatchQueue.main.async { [weak self] in
                 self?.appModel?.playMouseSound(button: .right)
             }
 
@@ -100,7 +100,7 @@ final class EventMonitor {
             AppLog.debug("EventMonitor", "Captured other mouse down", metadata: [
                 "buttonNumber": "\(buttonNumber)",
             ])
-            Task { @MainActor [weak self] in
+            DispatchQueue.main.async { [weak self] in
                 let button: MouseButton
                 switch buttonNumber {
                 case 2: button = .middle
@@ -116,7 +116,7 @@ final class EventMonitor {
             AppLog.debug("EventMonitor", "Captured scroll wheel event", metadata: [
                 "deltaY": String(format: "%.3f", deltaY),
             ])
-            Task { @MainActor [weak self] in
+            DispatchQueue.main.async { [weak self] in
                 self?.handleScroll(deltaY: deltaY)
             }
 

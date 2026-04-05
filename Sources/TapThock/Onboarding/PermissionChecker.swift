@@ -60,9 +60,24 @@ final class PermissionChecker {
             "isTrusted": "\(isTrusted)",
         ])
         timer?.invalidate()
+
+        // Only start the polling timer if permissions are still missing.
+        // The timer stops itself as soon as all permissions are confirmed.
+        guard isMissingRequiredPermissions else {
+            AppLog.info("PermissionChecker", "All permissions already granted; skipping timer")
+            return
+        }
+
         timer = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.refresh()
+                guard let self else { return }
+                self.refresh()
+                // Stop polling once all required permissions are in place.
+                if !self.isMissingRequiredPermissions {
+                    self.timer?.invalidate()
+                    self.timer = nil
+                    AppLog.info("PermissionChecker", "All permissions granted; stopped polling timer")
+                }
             }
         }
     }
