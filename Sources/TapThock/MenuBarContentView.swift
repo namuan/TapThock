@@ -36,7 +36,6 @@ struct MenuBarContentView: View {
                     appModel.previewCurrentPack()
                 }
                 Button("Settings") {
-                    NSApp.activate(ignoringOtherApps: true)
                     openSettings()
                 }
                 Button("Onboarding") {

@@ -34,7 +34,7 @@ struct SettingsView: View {
                             SoundPackCard(pack: pack, isSelected: appModel.selectedPackID == pack.id)
                         }
                         .buttonStyle(.plain)
-                    .focusEffectDisabled()
+                        .focusEffectDisabled()
                     }
                 }
             }
@@ -104,9 +104,7 @@ private struct SoundPackCard: View {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "play.circle")
                     .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
             }
-            Text(pack.id.replacingOccurrences(of: "-", with: " "))
-                .font(.caption)
-                .foregroundStyle(.secondary)
+
         }
         .padding(10)
         .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
