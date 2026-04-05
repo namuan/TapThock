@@ -49,3 +49,6 @@ iOSInjectionProject/
 
 # Temporary verification scripts (created by Claude, deleted after successful tasks)
 _verify/
+
+# Generated app bundles
+dist/
